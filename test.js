@@ -103,6 +103,29 @@ test('output at the specified location', async t => {
 	await del([temporary, destinationTemporary], {force: true});
 });
 
+test('handle nested paths', async t => {
+	const temporary = tempy.directory();
+	const nestedPath = path.join(temporary, 'nested');
+
+	const destinationTemporary = tempy.directory();
+	const buffer = await fsPromises.readFile(path.join(__dirname, 'fixture.jpg'));
+
+	await fsPromises.mkdir(nestedPath, {recursive: true});
+	await fsPromises.writeFile(path.join(nestedPath, 'fixture.jpg'), buffer);
+
+	const files = await imagemin(['/**/*.jpg'], {
+		baseDirectory: temporary,
+		destination: destinationTemporary,
+		plugins: [imageminJpegtran()],
+	});
+
+	const expectedPath = path.join(destinationTemporary, 'nested', 'fixture.jpg');
+	t.true(fs.existsSync(expectedPath), `Expected file to exist at ${expectedPath}`);
+	t.true(fs.existsSync(files[0].destinationPath));
+
+	await del([temporary, destinationTemporary], {force: true});
+});
+
 test('output at the specified location when input paths contain Windows path delimiter', async t => {
 	const temporary = tempy.directory();
 	const destinationTemporary = tempy.directory();

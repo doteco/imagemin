@@ -13,7 +13,7 @@ import convertToUnixPath from 'slash';
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 
-const handleFile = async (sourcePath, {destination, plugins = []}) => {
+const handleFile = async (sourcePath, {destination, baseDirectory, plugins = []}) => {
 	if (plugins && !Array.isArray(plugins)) {
 		throw new TypeError('The `plugins` option should be an `Array`');
 	}
@@ -24,6 +24,10 @@ const handleFile = async (sourcePath, {destination, plugins = []}) => {
 	const {ext} = await FileType.fromBuffer(data) || {ext: path.extname(sourcePath)};
 	let destinationPath = destination ? path.join(destination, path.basename(sourcePath)) : undefined;
 	destinationPath = ext === 'webp' ? replaceExt(destinationPath, '.webp') : destinationPath;
+
+	if (destinationPath && baseDirectory) {
+		destinationPath = path.join(path.dirname(destinationPath), sourcePath.replace(baseDirectory, ''));
+	}
 
 	const returnValue = {
 		data,
@@ -46,7 +50,15 @@ export default async function imagemin(input, {glob = true, ...options} = {}) {
 		throw new TypeError(`Expected an \`Array\`, got \`${typeof input}\``);
 	}
 
-	const unixFilePaths = input.map(path => convertToUnixPath(path));
+	const unixFilePaths = input.map(filePath => {
+		let unixPath = convertToUnixPath(filePath);
+		if (options.baseDirectory) {
+			unixPath = path.join(options.baseDirectory, unixPath);
+		}
+
+		return unixPath;
+	});
+
 	const filePaths = glob ? await globby(unixFilePaths, {onlyFiles: true}) : input;
 
 	return Promise.all(
